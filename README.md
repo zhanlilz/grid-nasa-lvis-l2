@@ -1,5 +1,5 @@
 # grid-nasa-lvis-l2
-Grid laser-shot-based LVIS L2 data from NASA into raster data
+**Grid laser-shot-based LVIS L2 data from NASA into raster data**
 
 Contact: Zhan Li, zhan.li AT canada dot ca, zhanli1986 AT gmail dot com
 
