@@ -46,11 +46,11 @@ field you like using the script `rasterize_vector.py`. This script rasterizes
 vector files into raster files based on `gdal_rasterize` but with some special
 treatment/improvements of the rasterization, including, 
 
-	1. when rasterizing points on regular grids, points will be placed in
-	   the center of rasterized pixels.
+1. when rasterizing points on regular grids, points will be placed in the
+   center of rasterized pixels.
 
-	2. when given a template raster, the input vector will be rasterized
-	   into a grid that is aligned with the given template raster.
+2. when given a template raster, the input vector will be rasterized into a
+   grid that is aligned with the given template raster.
 
 To see help for this script
 ```
