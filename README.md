@@ -23,7 +23,28 @@ satellites such as Landsat and Sentinel-2.
 
 The gridding procedure in this repo uses weighted average of LVIS L2 variable
 values from all the shots covering a grid cell. The weights are the area of a
-shot covering a grid cell. 
+shot covering a grid cell.
+
+## Installation
+The required dependencies of this repository are packaged into a zipped file by
+Anaconda's `conda` program. This zipped file, called
+*conda-env-rasterio.tar.gz*, comes with a release that you may download from
+this repository on github. 
+
+To install the dependencies for using scripts in this repo, 
+
+1. Unzip *conda-env-rasterio.tar.gz* into a directory you may name *your_dir*
+```
+$ tar -C your_dir -xzf conda-env-rasterio.tar.gz
+```
+
+2. Run the following command to set up environment variables
+```
+$ source your_dir/bin/activate
+$ conda-unpack
+```
+
+3. Now you are ready to use the scripts.
 
 ## Quickstart
 Use the main script `grid_lvis_l2.py` to do all the steps in one go that
@@ -99,6 +120,13 @@ $ python rasterize_vector.py -r 20 -a rh10 -f GTiff --nodata -9999 --init -9999 
 	LVIS2_ABoVE2017_0630_R1803_069010_grid_points.sqlite LVIS2_ABoVE2017_0630_R1803_069010_grid_points_rh10.tif
 ```
 
+* **Convert a sqlite file of point vectors of grid cells to a CSV file for
+easy inspection.**
+
+```
+$ ogr2ogr -f CSV -lco GEOMETRY=AS_XY \
+	LVIS2_ABoVE2017_0629_R1803_057198_grid_points.csv LVIS2_ABoVE2017_0629_R1803_057198_grid_points.sqlite
+```
 
 ## References
 <a id="1">[1]</a> Blair, J.B., Rabine, D.L., Hofton, M.A., 1999. The Laser Vegetation Imaging Sensor: a medium-altitude, digitisation-only, airborne laser altimeter for mapping vegetation and topography. ISPRS J. Photogramm. Remote Sens. 54, 115–122. https://doi.org/10.1016/S0924-2716(99)00002-7
