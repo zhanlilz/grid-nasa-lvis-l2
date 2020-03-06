@@ -17,19 +17,20 @@ Experiment (ABoVE) Airborne Campaign [[3]](#3).
 
 This repo of scripts grid the shot-based LVIS L2 data into raster data, given a
 raster grid of user-defined resolution and spatial reference system. Gridded
-products allow easier synertistic uses of LVIS data with other remote sensing
+products allow easier synergetic uses of LVIS data with other remote sensing
 products, particularly terrestrial remote sensing data from medium resolution
 satellites such as Landsat and Sentinel-2.
 
 The gridding procedure in this repo uses weighted average of LVIS L2 variable
-values from all the shots covering a grid cell. The weights are the area of a
-shot covering a grid cell.
+values from all the shots covering a grid cell. The weight of each shot is the
+area of this shot covering a grid cell.
 
 ## Installation
 The required dependencies of this repository are packaged into a zipped file by
 Anaconda's `conda` program. This zipped file, called
-*conda-env-rasterio.tar.gz*, comes with a release that you may download from
-this repository on github. 
+*conda-env-rasterio.tar.gz*, comes with [__*a
+release*__](https://github.com/zhanlilz/grid-nasa-lvis-l2/releases) that you
+may download from this repository on github. 
 
 To install the dependencies for using scripts in this repo, 
 
