@@ -17,7 +17,7 @@ vectorize_lvis_l2 () {
 	head_str="$(echo ${head_str} | sed 's/ /,/g')"
 	echo ${head_str} > ${tmp_csv}
 	tail -n +14 ${my_txt} | tr -s '[:space:]' | awk '{$4 = $4 - 360; $7 = $7 - 360; print}' | sed 's/ /,/g' >> ${tmp_csv}
-	NF=$(echo ${head_str} | awk --field-separator="," '{ print NF }')
+	NF=$(echo ${head_str} | awk -F',' '{ print NF }')
 
 	tmp_csvt=${tmp_csv/%".csv"/".csvt"}
 	if [[ -r ${my_csvt} ]]; then
