@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 
+export OGR_SQLITE_CACHE=1024
+
 vectorize_lvis_l2 () {
 	my_txt=${1}
-	outshp=${2}
+	out_vector=${2}
 	if [[ ${#} -gt 2 ]]; then
 		my_csvt=${3}
 	fi
-	echo "${outshp} <- ${my_txt}"
+	echo "${out_vector} <- ${my_txt}"
 
 	SRS='GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.01745329251994328,AUTHORITY["EPSG","9122"]],AUTHORITY["EPSG","4326"]]'
 
-	LVIS2_SHP_DIR=$(dirname ${outshp})
-	tmp_csv=$(mktemp -p ${LVIS2_SHP_DIR} --suffix=".csv")
+	LVIS2_VECTOR_DIR=$(dirname ${out_vector})
+	tmp_csv=$(mktemp -p ${LVIS2_VECTOR_DIR} --suffix=".csv")
 	head_str="$(head -n 13 ${my_txt} | tail -n 1)"
 	head_str="${head_str#'# '}"
 	head_str="$(echo ${head_str} | sed 's/ /,/g')"
@@ -32,19 +34,29 @@ vectorize_lvis_l2 () {
 		echo ${csvt_str} > ${tmp_csvt}
 	fi
 	
-	echo ogr2ogr -overwrite -f "ESRI Shapefile" -oo X_POSSIBLE_NAMES="GLON" -oo Y_POSSIBLE_NAMES="GLAT" -a_srs "${SRS}" ${outshp} ${tmp_csv}
-	ogr2ogr -overwrite -f "ESRI Shapefile" -oo X_POSSIBLE_NAMES="GLON" -oo Y_POSSIBLE_NAMES="GLAT" -a_srs "${SRS}" ${outshp} ${tmp_csv}
+    echo ogr2ogr -overwrite -f "SQLite" \
+        -dsco SPATIALITE=YES -lco SPATIAL_INDEX=YES \
+        -nln "$(basename ${out_vector} '.sqlite')" \
+        -oo X_POSSIBLE_NAMES="GLON" -oo Y_POSSIBLE_NAMES="GLAT" \
+        -a_srs "${SRS}" \
+        ${out_vector} ${tmp_csv} 
+	ogr2ogr -overwrite -f "SQLite" \
+        -dsco SPATIALITE=YES -lco SPATIAL_INDEX=YES \
+        -nln "$(basename ${out_vector} '.sqlite')" \
+        -oo X_POSSIBLE_NAMES="GLON" -oo Y_POSSIBLE_NAMES="GLAT" \
+        -a_srs "${SRS}" \
+        ${out_vector} ${tmp_csv} 
 	rm -f ${tmp_csv} ${tmp_csvt}
 }
 export -f vectorize_lvis_l2
 
 read -d '' USAGE <<EOF
 
-vectorize_lvis_l2.sh LVIS_L2_TXT LVIS_L2_SHP [COLUMN_TYPES]
+vectorize_lvis_l2.sh LVIS_L2_TXT LVIS_L2_VECTOR [COLUMN_TYPES]
 
 LVIS_L2_TXT: an ASCII file of LVIS L2 data. See https://nsidc.org/data/ABLVIS2.
 
-LVIS_L2_SHP: output shapefile of LVIS L2 data. 
+LVIS_L2_VECTOR: output vector file (SQLite format) of LVIS L2 data. 
 
 COLUMN_TYPES, optional: a single line file that lists types of each column of the input LVIS L2 ASCII file, delimited by ",", data types can be simply Real/Integer/String. See https://giswiki.hsr.ch/GeoCSV#CSVT_file_format_specification for more details.
 

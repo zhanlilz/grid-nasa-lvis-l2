@@ -12,6 +12,7 @@ import tempfile
 import shutil
 import warnings
 import sys
+import glob
 
 from osgeo import gdalconst, ogr, gdal_array, gdal, osr
 
@@ -46,6 +47,16 @@ Grid LVIS L2 product into a designated raster grid.
         raise RuntimeError("When designating grid resolution rather than using template raster, you must provide the option --out_srs.")
     return cmdargs
 
+def get_vector_schema(vector_file):
+    source = ogr.Open(vector_file)
+    layer = source.GetLayer()
+    schema = []
+    ldefn = layer.GetLayerDefn()
+    for n in range(ldefn.GetFieldCount()):
+        fdefn = ldefn.GetFieldDefn(n)
+        schema.append(fdefn.name)
+    return schema
+
 def main(cmdargs):
     cmd_dir = os.path.dirname(sys.argv[0])
     
@@ -78,43 +89,63 @@ def main(cmdargs):
         dir_inter = os.path.dirname(lvis_l2grd)
 
     inter_files = {}
-    # Convert LVIS L2 ASCII to point shapefile in its native geographic coordinate system WGS84.
-    lvis_l2_point = os.path.join(dir_inter, "{0:s}_points.shp".format(lvis_name))
+    # Convert LVIS L2 ASCII to point vector (sqlite) in its native geographic
+    # coordinate system WGS84.
+    lvis_l2_point = os.path.join(dir_inter, "{0:s}_points.sqlite".format(lvis_name))
     cmd = ['bash', os.path.join(cmd_dir, 'vectorize_lvis_l2.sh'), 
             lvis_l2txt, lvis_l2_point]
     if col_types is not None:
         cmd += [col_types]
     print("\n"+" ".join(cmd)+"\n")
-    subprocess.run(cmd)
+    subprocess.run(cmd, check=True)
     inter_files[lvis_l2_point] = "vector"
 
-    # Reproject point shapefile to a projected spaital reference system.
-    lvis_l2_point_prj = os.path.join(dir_inter, "{0:s}_points_proj.shp".format(lvis_name))
+    # Reproject point vector (sqlite) to a projected spaital reference system.
+    lvis_l2_point_prj = os.path.join(dir_inter, "{0:s}_points_proj.sqlite".format(lvis_name))
     tmp_dir = tempfile.mkdtemp(dir=dir_inter)
-    tmp_shp = os.path.join(tmp_dir, "tmp.shp")
-    cmd = ['ogr2ogr', '-overwrite', '-f', 'ESRI Shapefile', '-t_srs', out_srs, tmp_shp, lvis_l2_point]
+    tmp_vector = os.path.join(tmp_dir, "tmp.sqlite")
+    cmd = ['ogr2ogr', '--config', 'OGR_SQLITE_CACHE=1024', 
+            '-overwrite', '-f', 'SQLite', '-nln', 'tmp', 
+            '-dsco', 'SPATIALITE=YES', '-lco', 'SPATIAL_INDEX=YES', 
+            '-t_srs', out_srs, 
+            tmp_vector, lvis_l2_point]
     print("\n"+" ".join(cmd)+"\n")
-    subprocess.run(cmd)
+    subprocess.run(cmd, check=True)
     sql_str="SELECT *, ST_X(geometry) as geasting, ST_Y(geometry) as gnorthing FROM tmp"
-    cmd = ['ogr2ogr', '-overwrite', '-f', 'ESRI Shapefile', '-dialect', 'SQLite', '-sql', sql_str, lvis_l2_point_prj, tmp_shp]
+    cmd = ['ogr2ogr', '--config', 'OGR_SQLITE_CACHE=1024', 
+            '-overwrite', '-f', 'SQLite', 
+            '-nln', os.path.splitext(os.path.basename(lvis_l2_point_prj))[0], 
+            '-dsco', 'SPATIALITE=YES', '-lco', 'SPATIAL_INDEX=YES', 
+            '-dialect', 'SQLite', '-sql', sql_str, 
+            lvis_l2_point_prj, tmp_vector]
     print("\n"+" ".join(cmd)+"\n")
-    subprocess.run(cmd)
+    subprocess.run(cmd, check=True)
     shutil.rmtree(tmp_dir)
     inter_files[lvis_l2_point_prj] = "vector"
 
     # Create a polygon vector to describe laser shots as circles.
-    lvis_l2_shot_circle = os.path.join(dir_inter, "{0:s}_shot_circles.shp".format(lvis_name))
-    sql_str="SELECT ST_Buffer(geometry, {0:f}), * FROM {1:s}".format(shot_diameter*0.5, "{0:s}_points_proj".format(lvis_name))
-    cmd = ['ogr2ogr', '-overwrite', '-sql', sql_str, '-dialect', 'SQLITE', lvis_l2_shot_circle, lvis_l2_point_prj]
+    lvis_l2_shot_circle = os.path.join(dir_inter, "{0:s}_shot_circles.sqlite".format(lvis_name))
+    schema = get_vector_schema(lvis_l2_point_prj)
+    sql_str = "SELECT ST_Buffer(geometry, {0:f}) as geometry, {2:s} FROM {1:s}"
+    sql_str = sql_str.format(shot_diameter*0.5, 
+            "{0:s}_points_proj".format(lvis_name.lower()), 
+            ','.join(schema))
+    cmd = ['ogr2ogr', '--config', 'OGR_SQLITE_CACHE=1024', 
+            '-overwrite', '-f', 'SQLite',
+            '-nln', os.path.splitext(os.path.basename(lvis_l2_shot_circle))[0], 
+            '-dsco', 'SPATIALITE=YES', '-lco', 'SPATIAL_INDEX=YES',
+            '-lco', 'GEOMETRY_NAME=geometry', 
+            '-sql', sql_str, '-dialect', 'SQLITE', 
+            lvis_l2_shot_circle, lvis_l2_point_prj]
     print("\n"+" ".join(cmd)+"\n")
-    subprocess.run(cmd)
+    subprocess.run(cmd, check=True)
     inter_files[lvis_l2_shot_circle] = "vector"
 
     # Rasterize shot circles to identify grid cells covered by laser shots.
     lvis_l2_shot_cover_tif = os.path.join(dir_inter, "{0:s}_shot_cover.tif".format(lvis_name))
     cmd = ['python', os.path.join(cmd_dir, 'rasterize_vector.py'), 
             '--at', '--burn', '1', 
-            '-l', "{0:s}_shot_circles".format(lvis_name), '-f', 'GTiff', 
+            '-l', "{0:s}_shot_circles".format(lvis_name.lower()), '-f', 'GTiff', 
             '--ot', 'Byte', '--init', '0', '--nodata', '0']
     if t_raster is not None:
         cmd += ['-t', t_raster]
@@ -122,24 +153,24 @@ def main(cmdargs):
         cmd += ['-r', str(img_res)]
     cmd += [lvis_l2_shot_circle, lvis_l2_shot_cover_tif]
     print("\n"+" ".join(cmd)+"\n")
-    subprocess.run(cmd)
+    subprocess.run(cmd, check=True)
     inter_files[lvis_l2_shot_cover_tif] = "raster"
    
     # Create a polygon vector of grid cells covered by laser shots
-    lvis_l2_shot_cover_shp = os.path.join(dir_inter, "{0:s}_shot_cover.shp".format(lvis_name))
+    lvis_l2_shot_cover_vector = os.path.join(dir_inter, "{0:s}_shot_cover.sqlite".format(lvis_name))
     cmd = ['bash', os.path.join(cmd_dir, 'raster_to_polygon_grids.sh'), 
-            lvis_l2_shot_cover_tif, lvis_l2_shot_cover_shp]
+            lvis_l2_shot_cover_tif, lvis_l2_shot_cover_vector]
     print("\n"+" ".join(cmd)+"\n")
-    subprocess.run(cmd)
-    inter_files[lvis_l2_shot_cover_shp] = "vector"
+    subprocess.run(cmd, check=True)
+    inter_files[lvis_l2_shot_cover_vector] = "vector"
 
     # Intersect shot circles with grid cells, that is, cut shot circles into
     # segments using grid cells.
     lvis_l2_shot_seg = os.path.join(dir_inter, "{0:s}_shot_segments.sqlite".format(lvis_name))
     cmd = ['bash', os.path.join(cmd_dir, 'grids_cut_shots.sh'), 
-            lvis_l2_shot_cover_shp, lvis_l2_shot_circle, lvis_l2_shot_seg]
+            lvis_l2_shot_cover_vector, lvis_l2_shot_circle, lvis_l2_shot_seg]
     print("\n"+" ".join(cmd)+"\n")
-    subprocess.run(cmd)
+    subprocess.run(cmd, check=True)
     inter_files[lvis_l2_shot_seg] = "vector"
 
     # Aggregate/group shot segments to produce point vector of grids, with each
@@ -149,16 +180,16 @@ def main(cmdargs):
             str(img_res)]
     cmd += col2grid
     print("\n"+" ".join(cmd)+"\n")
-    subprocess.run(cmd)
+    subprocess.run(cmd, check=True)
 
     if not keep_inter:
         for fname, ftype in inter_files.items():
             if ftype == "vector":
-                cmd = ['fio', 'rm', '--yes', fname]
-                subprocess.run(cmd)
+                for val in glob.glob(os.path.splitext(fname)[0]+'.*'):
+                    os.remove(val)
             elif ftype == "raster":
                 cmd = ['gdalmanage', 'delete', fname]
-                subprocess.run(cmd)
+                subprocess.run(cmd, check=True)
             elif ftype == "regular":
                 os.path.remove(fname)
 

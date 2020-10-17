@@ -10,6 +10,9 @@
 # Zhan Li, zhan.li@canada.ca
 # Created: Thu Jan  2 14:19:44 PST 2020
 
+import sys
+import os
+
 import argparse
 import subprocess
 
@@ -131,7 +134,7 @@ def main(cmdargs):
 
     cmd = ['gdal_rasterize'] + options + [in_vector, out_raster]
     print(" ".join(cmd))
-    subprocess.run(cmd)
+    subprocess.run(cmd, check=True)
 
 if __name__ == "__main__":
     cmdargs = getCmdArgs()

@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 
+export OGR_SQLITE_CACHE=1024
+
 read -d '' USAGE <<EOF
-raster_to_polygon_grids INPUT_GRID_RASTER OUTPUT_GRID_POLYGON_SHP NODATAVALUE
+raster_to_polygon_grids INPUT_GRID_RASTER OUTPUT_GRID_POLYGON_VECTOR NODATAVALUE
 
 INPUT_GRID_RASTER: input raster from which polygon grids are created. Only non
 no-data pixels will be exported to grid polygons.
 
-OUTPUT_GRID_POLYGON_SHP: output polygon grids in shapefile. Each polygon is a
-pixel with valid values, that is, not no-data values. 
+OUTPUT_GRID_POLYGON_VECTOR: output polygon grids in SQLite file. Each polygon
+is a pixel with valid values, that is, not no-data values. 
 
 NODATAVALUE: optional, a no-data value to filter out no-data pixels rather than
 using the default no-data value of the input raster file. The default no-data
@@ -41,16 +43,16 @@ raster_to_polygon_grids () {
 		local ndv=${3}
 	fi
 	local grid_raster=${1}
-	local polygon_grid_shp=${2}
-	local out_dir=$(dirname ${polygon_grid_shp})
+	local polygon_grid_vector=${2}
+	local out_dir=$(dirname ${polygon_grid_vector})
 	local my_tmpdir=${out_dir}
 
-	local IMG_RES=$(gdalinfo ${grid_raster} | grep "Pixel Size" | cut -d'=' -f2 | tr -d '()' | cut -d',' -f1)
+	local IMG_RES=$(gdalinfo -json ${grid_raster} | jq -r .geoTransform[1])
 	if [[ -z ${ndv} ]]; then
-		ndv=$(gdalinfo ${grid_raster} | grep "NoData Value" | cut -d'=' -f2)
+		ndv=$(gdalinfo -json ${grid_raster} | jq -r .bands[0].noDataValue)
 	fi
 	if [[ -z ${ndv} ]]; then
-		type_name=$(gdalinfo ${grid_raster} | grep "Band 1" | grep -o "Type=.*," | tr -d ',' | cut -d'=' -f2)
+		type_name=$(gdalinfo -json ${grid_raster} | jq -r .bands[0].type)
 		ndv=$(build_py_get_default_ndv | python - ${type_name})
 	fi
 
@@ -63,7 +65,7 @@ raster_to_polygon_grids () {
 	echo "easting,northing,covered" > ${covered_xyz}
 	grep --invert-match ",${ndv}$" ${tmp_xyz} >> ${covered_xyz}
 	# 3. Add lat and lon to the CSV file
-	local SRS="$(gdalinfo -proj4 ${grid_raster} | grep -A 1 "PROJ.4" | tail -n 1 | xargs -I{} gdalsrsinfo -o wkt {})"
+    local SRS="$(gdalinfo -json ${grid_raster} | jq -r .coordinateSystem.wkt)"
 	local tmp_covered_wgs=$(mktemp -p ${my_tmpdir} --suffix ".txt")
 	read -r -d '' awk_script <<- 'EOF'
 	{
@@ -104,8 +106,14 @@ raster_to_polygon_grids () {
 	paste -d "," ${tmp_grid_xyz} ${tmp_covered_wgs} > ${covered_grid_xyz}
 	local covered_grid_csvt=${covered_grid_xyz/%".csv"/".csvt"}
 	echo '"WKT","Real","Real","Integer","Integer","Real","Real"' > ${covered_grid_csvt}
-	# 5. Create a polygon shapefile of covered grid cells from the CSV file
-	ogr2ogr -f "ESRI Shapefile" -overwrite -a_srs "${SRS}" -oo GEOM_POSSIBLE_NAMES="geom" -oo HEADERS=YES -oo KEEP_GEOM_COLUMNS=NO ${polygon_grid_shp} ${covered_grid_xyz}
+    # 5. Create a polygon vector (sqlite) of covered grid cells from the CSV file
+    local layer_name=$(basename ${polygon_grid_vector} '.sqlite')
+    layer_name=${layer_name,,}
+	ogr2ogr -f "SQLite" -dsco SPATIALITE=YES -lco SPATIAL_INDEX=YES \
+        -overwrite -a_srs "${SRS}" \
+        -nln ${layer_name} \
+        -oo GEOM_POSSIBLE_NAMES="geom" -oo HEADERS=YES -oo KEEP_GEOM_COLUMNS=NO \
+        ${polygon_grid_vector} ${covered_grid_xyz}
  
 	rm -f ${tmp_covered_wgs} ${tmp_grid_xyz}
 	rm -f ${tmp_xyz} ${covered_xyz} ${covered_grid_xyz} ${covered_grid_csvt}

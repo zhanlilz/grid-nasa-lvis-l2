@@ -17,7 +17,8 @@ FIELD2AGG: optional, one or multiple fields in the VECTOR_OF_SHOT_SEG file to
 aggregate and ouput to OUT_VECTOR_OF_POINT_GRIDS. 
 
 Note: All the vector files are preferentially in SQLite format to significantly
-improve processing speed. Using shapefile results in really slow processing.
+improve processing speed. Using ESRI Shapefile results in really slow
+processing.
 EOF
 
 # Increase SQLite page cache size to speed up
@@ -43,7 +44,7 @@ shot_seg_to_point_grids () {
 	local COL4GROUP="seq_id"
 	local COL4WT="ac_by_shot"
 	local COLS2COPY=(easting northing covered seq_id lon lat)
-	local COLS2STATS=(glon glat zg tlon tlat zt azimuth incidentan range \
+	local COLS2STATS=(glon glat zg tlon tlat zt azimuth incidentangle range \
 		geasting gnorthing ac_by_shot dist_shot2pixel ${fields[@]})
 	local select_str4copy=""
 	for ((k=0; k<${#COLS2COPY[@]}; k++)) {
@@ -74,11 +75,11 @@ shot_seg_to_point_grids () {
 	FROM ${shotseg_layer} 
 	GROUP BY ${COL4GROUP}
 	EOF
-
 	out_layer_name=$(basename ${gridded_vector} | rev | cut -d '.' -f2- | rev)
 	echo ogr2ogr -overwrite -gt 1000000 -f "SQLite" -dialect "SQLITE" \
 		-sql "${SQL_STR}" ${gridded_vector} ${shotseg_vector} \
 		-dsco SPATIALITE=YES -lco SPATIAL_INDEX=YES \
+        -lco GEOMETRY_NAME=geometry \
 		-nln ${out_layer_name} \
 		-nlt POINT
 	ogr2ogr -overwrite -gt 1000000 -f "SQLite" -dialect "SQLITE" \
