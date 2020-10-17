@@ -54,6 +54,9 @@ def main(cmdargs):
     out_srs = cmdargs.out_srs
     shot_diameter = cmdargs.shot_diameter
     col_types = cmdargs.col_types
+    if col_types is not None:
+        if not os.path.isfile(col_types):
+            raise RuntimeError('Given CSVT file does not exist: {0:s}'.format(col_types))
     col2grid = cmdargs.col2grid
     lvis_l2txt = cmdargs.lvis_l2txt
     lvis_l2grd = cmdargs.lvis_l2grd
