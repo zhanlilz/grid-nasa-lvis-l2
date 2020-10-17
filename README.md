@@ -1,7 +1,7 @@
 # grid-nasa-lvis-l2
 **Grid laser-shot-based LVIS L2 data from NASA into raster data**
 
-Contact: Zhan Li, zhan.li AT canada dot ca, zhanli1986 AT gmail dot com
+Contact: Zhan Li, zhanli AT gfz-potsdam dot de, zhanli1986 AT gmail dot com
 
 This is part of the work by Zhan Li at Pacific Forestry Centre of Canadian
 Forest Service. 
@@ -26,11 +26,23 @@ values from all the shots covering a grid cell. The weight of each shot is the
 area of this shot covering a grid cell.
 
 ## Installation
-The required dependencies of this repository are packaged into a zipped file by
-Anaconda's `conda` program. This zipped file, called
+__NOTE: the program is tested only on Linux system.__
+
+The required dependencies of this repository are listed in the file
+`environment.yml`. Two recommended ways to install these dependencies. 
+
+### Install dependencies via [`conda` program](https://docs.conda.io/projects/conda/en/latest/index.html)
+1. [Install `conda`](https://docs.conda.io/projects/conda/en/latest/commands/install.html)
+
+2. [Create a conda environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-from-an-environment-yml-file)
+   using the file `environment.yml` in the repository. 
+
+### Unpack dependencies from a pre-zipped file
+The dependencies are pre-packaged into a zipped file by [`conda-pack`
+program](https://conda.github.io/conda-pack/). This zipped file, called
 *conda-env-rasterio.tar.gz*, comes with [__*a
 release*__](https://github.com/zhanlilz/grid-nasa-lvis-l2/releases) that you
-may download from this repository on github. 
+may download from [this repository on github](https://github.com/zhanlilz/grid-nasa-lvis-l2). 
 
 To install the dependencies for using scripts in this repo, 
 
