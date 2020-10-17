@@ -14,11 +14,21 @@ import warnings
 import sys
 import glob
 
+import coloredlogs
+import logging
+
 from osgeo import gdalconst, ogr, gdal_array, gdal, osr
 
 import numpy as np
 
 import affine
+
+# Create a logger object.
+logger = logging.getLogger(__name__)
+# If you don't want to see log messages from libraries, you can pass a
+# specific logger object to the install() function. In this case only log
+# messages originating from that logger will show up on the terminal.
+coloredlogs.install(level='DEBUG', logger=logger)
 
 def getCmdArgs():
     desc_str = """
@@ -67,7 +77,8 @@ def main(cmdargs):
     col_types = cmdargs.col_types
     if col_types is not None:
         if not os.path.isfile(col_types):
-            raise RuntimeError('Given CSVT file does not exist: {0:s}'.format(col_types))
+            logger.error('Given CSVT file does not exist: {0:s}'.format(col_types))
+            sys.exit(1)
     col2grid = cmdargs.col2grid
     lvis_l2txt = cmdargs.lvis_l2txt
     lvis_l2grd = cmdargs.lvis_l2grd
@@ -79,7 +90,7 @@ def main(cmdargs):
         t_gt = t_ds.GetGeoTransform()
         img_res = np.fabs(t_gt[1])
         if out_srs is not None:
-            warnings.warn("The option --out_srs will be ignored because the template raster is given and its spatial reference system will be used.")
+            logger.warning("The option --out_srs will be ignored because the template raster is given and its spatial reference system will be used.")
         out_srs = t_ds.GetProjectionRef()
         t_ds = None
 
@@ -89,6 +100,7 @@ def main(cmdargs):
         dir_inter = os.path.dirname(lvis_l2grd)
 
     inter_files = {}
+    logger.info('Start Step-1: Convert the LVIS L2 ASCII to a point vector file in its native geographic coordinate system WGS84.')
     # Convert LVIS L2 ASCII to point vector (sqlite) in its native geographic
     # coordinate system WGS84.
     lvis_l2_point = os.path.join(dir_inter, "{0:s}_points.sqlite".format(lvis_name))
@@ -99,7 +111,9 @@ def main(cmdargs):
     print("\n"+" ".join(cmd)+"\n")
     subprocess.run(cmd, check=True)
     inter_files[lvis_l2_point] = "vector"
+    logger.info('Done  Step-1: Convert the LVIS L2 ASCII to a point vector file in its native geographic coordinate system WGS84.')
 
+    logger.info('Start Step-2: Reproject point vector (sqlite) to the given projected spaital reference system.')
     # Reproject point vector (sqlite) to a projected spaital reference system.
     lvis_l2_point_prj = os.path.join(dir_inter, "{0:s}_points_proj.sqlite".format(lvis_name))
     tmp_dir = tempfile.mkdtemp(dir=dir_inter)
@@ -122,7 +136,9 @@ def main(cmdargs):
     subprocess.run(cmd, check=True)
     shutil.rmtree(tmp_dir)
     inter_files[lvis_l2_point_prj] = "vector"
+    logger.info('Done  Step-2: Reproject point vector (sqlite) to the given projected spaital reference system.')
 
+    logger.info('Start Step-3: Create a polygon vector to describe laser shots as circles.')
     # Create a polygon vector to describe laser shots as circles.
     lvis_l2_shot_circle = os.path.join(dir_inter, "{0:s}_shot_circles.sqlite".format(lvis_name))
     schema = get_vector_schema(lvis_l2_point_prj)
@@ -140,7 +156,9 @@ def main(cmdargs):
     print("\n"+" ".join(cmd)+"\n")
     subprocess.run(cmd, check=True)
     inter_files[lvis_l2_shot_circle] = "vector"
+    logger.info('Done  Step-3: Create a polygon vector to describe laser shots as circles.')
 
+    logger.info('Start Step-4: Rasterize shot circles to identify grid cells covered by laser shots.')
     # Rasterize shot circles to identify grid cells covered by laser shots.
     lvis_l2_shot_cover_tif = os.path.join(dir_inter, "{0:s}_shot_cover.tif".format(lvis_name))
     cmd = ['python', os.path.join(cmd_dir, 'rasterize_vector.py'), 
@@ -155,7 +173,9 @@ def main(cmdargs):
     print("\n"+" ".join(cmd)+"\n")
     subprocess.run(cmd, check=True)
     inter_files[lvis_l2_shot_cover_tif] = "raster"
-   
+    logger.info('Done  Step-4: Rasterize shot circles to identify grid cells covered by laser shots.')
+ 
+    logger.info('Start Step-5: Create a polygon vector of grid cells covered by laser shots.')
     # Create a polygon vector of grid cells covered by laser shots
     lvis_l2_shot_cover_vector = os.path.join(dir_inter, "{0:s}_shot_cover.sqlite".format(lvis_name))
     cmd = ['bash', os.path.join(cmd_dir, 'raster_to_polygon_grids.sh'), 
@@ -163,7 +183,9 @@ def main(cmdargs):
     print("\n"+" ".join(cmd)+"\n")
     subprocess.run(cmd, check=True)
     inter_files[lvis_l2_shot_cover_vector] = "vector"
+    logger.info('Done  Step-5: Create a polygon vector of grid cells covered by laser shots.')
 
+    logger.info('Start Step-6: Use grid cells to cut shot circles into segments.')
     # Intersect shot circles with grid cells, that is, cut shot circles into
     # segments using grid cells.
     lvis_l2_shot_seg = os.path.join(dir_inter, "{0:s}_shot_segments.sqlite".format(lvis_name))
@@ -172,7 +194,9 @@ def main(cmdargs):
     print("\n"+" ".join(cmd)+"\n")
     subprocess.run(cmd, check=True)
     inter_files[lvis_l2_shot_seg] = "vector"
+    logger.info('Done  Step-6: Use grid cells to cut shot circles into segments.')
 
+    logger.info('Start Step-7: Aggregate shot segments to produce point vector of grids, with each point being a grid cell center.')
     # Aggregate/group shot segments to produce point vector of grids, with each
     # point being a grid cell.
     cmd = ['bash', os.path.join(cmd_dir, 'shot_seg_to_point_grids.sh'), 
@@ -181,8 +205,10 @@ def main(cmdargs):
     cmd += col2grid
     print("\n"+" ".join(cmd)+"\n")
     subprocess.run(cmd, check=True)
+    logger.info('Done  Step-7: Aggregate shot segments to produce point vector of grids, with each point being a grid cell center.')
 
     if not keep_inter:
+        logger.info('Done Processing. Clean up intermediate files.')
         for fname, ftype in inter_files.items():
             if ftype == "vector":
                 for val in glob.glob(os.path.splitext(fname)[0]+'.*'):
