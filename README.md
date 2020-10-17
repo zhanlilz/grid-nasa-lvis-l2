@@ -116,9 +116,9 @@ $ python grid_lvis_l2.py --keep_intermediate \
   centers, at 20-m resolution in GeoTiff format.**
 
 ```
-$ python rasterize_vector.py -r 20 -a rh10 -f GTiff --nodata -9999 --init -9999 \
+$ python rasterize_vector.py -r 20 -a rh10_wt_avg -f GTiff --nodata -9999 --init -9999 \
 	--ot Float32 \
-	LVIS2_ABoVE2017_0630_R1803_069010_grid_points.sqlite LVIS2_ABoVE2017_0630_R1803_069010_grid_points_rh10.tif
+	LVIS2_ABoVE2017_0630_R1803_069010_grid_points.sqlite LVIS2_ABoVE2017_0630_R1803_069010_grid_points_rh10_wt_avg.tif
 ```
 
 * **Convert a sqlite file of point vectors of grid cells to a CSV file for
