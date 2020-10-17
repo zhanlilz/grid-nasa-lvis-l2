@@ -93,6 +93,7 @@ def main(cmdargs):
     tmp_dir = tempfile.mkdtemp(dir=dir_inter)
     tmp_shp = os.path.join(tmp_dir, "tmp.shp")
     cmd = ['ogr2ogr', '-overwrite', '-f', 'ESRI Shapefile', '-t_srs', out_srs, tmp_shp, lvis_l2_point]
+    print("\n"+" ".join(cmd)+"\n")
     subprocess.run(cmd)
     sql_str="SELECT *, ST_X(geometry) as geasting, ST_Y(geometry) as gnorthing FROM tmp"
     cmd = ['ogr2ogr', '-overwrite', '-f', 'ESRI Shapefile', '-dialect', 'SQLite', '-sql', sql_str, lvis_l2_point_prj, tmp_shp]
