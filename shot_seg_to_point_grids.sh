@@ -30,68 +30,68 @@ EOF
 export OGR_SQLITE_CACHE=1024
 
 shot_seg_to_point_grids () {
-	local shotseg_vector=${1}
-	local gridded_vector=${2}
-	local IMG_RES=${3}
-	local fields=(${@:4})
+    local shotseg_vector=${1}
+    local gridded_vector=${2}
+    local IMG_RES=${3}
+    local fields=(${@:4})
 
-	local shotseg_layer=$(basename ${shotseg_vector} | rev | cut -d '.' -f2- | rev)
-	
-	if [[ -r ${gridded_vector} ]]; then
-		rm -rf ${gridded_vector}*
-	fi
+    local shotseg_layer=$(basename ${shotseg_vector} | rev | cut -d '.' -f2- | rev)
+    
+    if [[ -r ${gridded_vector} ]]; then
+        rm -rf ${gridded_vector}*
+    fi
 
-	local COL4GROUP="seq_id"
-	local COL4WT="ac_by_shot"
-	local COLS2COPY=(easting northing covered seq_id lon lat)
-	local COLS2STATS=(glon glat zg tlon tlat zt azimuth incidentangle range \
-		geasting gnorthing ac_by_shot dist_shot2pixel ${fields[@]})
-	local select_str4copy=""
-	for ((k=0; k<${#COLS2COPY[@]}; k++)) {
-		select_str4copy="${select_str4copy}AVG(${COLS2COPY[$k]}) AS ${COLS2COPY[$k]}, "
-	}
-	select_str4copy=${select_str4copy/%", "}
-	local select_str4stats=""
-	for ((k=0; k<${#COLS2STATS[@]}; k++)) {
-		select_str4stats="${select_str4stats}AVG(${COLS2STATS[$k]}) AS ${COLS2STATS[$k]}_avg, "
-		select_str4stats="${select_str4stats}MIN(${COLS2STATS[$k]}) AS ${COLS2STATS[$k]}_min, "
-		select_str4stats="${select_str4stats}MAX(${COLS2STATS[$k]}) AS ${COLS2STATS[$k]}_max, "
-		select_str4stats="${select_str4stats}SUM(${COLS2STATS[$k]}*${COL4WT})/SUM(${COL4WT}) AS ${COLS2STATS[$k]}_wt_avg, "
-	}
-	select_str4stats=${select_str4stats/%", "}
-	
-	local SRID=$(ogrinfo ${shotseg_vector} -dialect "sqlite" \
-		-sql "SELECT SRID(geometry) FROM ${shotseg_layer} LIMIT 1" \
-		| grep "SRID(geometry) (Integer) = " | cut -d "=" -f2 \
-		| tr -d [:blank:])
+    local COL4GROUP="seq_id"
+    local COL4WT="ac_by_shot"
+    local COLS2COPY=(easting northing covered seq_id lon lat)
+    local COLS2STATS=(glon glat zg tlon tlat zt azimuth incidentangle range \
+        geasting gnorthing ac_by_shot dist_shot2pixel ${fields[@]})
+    local select_str4copy=""
+    for ((k=0; k<${#COLS2COPY[@]}; k++)) {
+        select_str4copy="${select_str4copy}AVG(${COLS2COPY[$k]}) AS ${COLS2COPY[$k]}, "
+    }
+    select_str4copy=${select_str4copy/%", "}
+    local select_str4stats=""
+    for ((k=0; k<${#COLS2STATS[@]}; k++)) {
+        select_str4stats="${select_str4stats}AVG(${COLS2STATS[$k]}) AS ${COLS2STATS[$k]}_avg, "
+        select_str4stats="${select_str4stats}MIN(${COLS2STATS[$k]}) AS ${COLS2STATS[$k]}_min, "
+        select_str4stats="${select_str4stats}MAX(${COLS2STATS[$k]}) AS ${COLS2STATS[$k]}_max, "
+        select_str4stats="${select_str4stats}SUM(${COLS2STATS[$k]}*${COL4WT})/SUM(${COL4WT}) AS ${COLS2STATS[$k]}_wt_avg, "
+    }
+    select_str4stats=${select_str4stats/%", "}
+    
+    local SRID=$(ogrinfo ${shotseg_vector} -dialect "sqlite" \
+        -sql "SELECT SRID(geometry) FROM ${shotseg_layer} LIMIT 1" \
+        | grep "SRID(geometry) (Integer) = " | cut -d "=" -f2 \
+        | tr -d [:blank:])
 
-	read -r -d '' SQL_STR <<- EOF
-	SELECT 
-		MakePoint(AVG(easting), AVG(northing), ${SRID}) AS geometry, 
-		COUNT(${COL4GROUP}) AS shot_count,
-		ST_Area(ST_Union(geometry))/(${IMG_RES}*${IMG_RES}) AS sc_percent, 
-		${select_str4copy}, 
-		${select_str4stats} 
-	FROM ${shotseg_layer} 
-	GROUP BY ${COL4GROUP}
-	EOF
-	out_layer_name=$(basename ${gridded_vector} | rev | cut -d '.' -f2- | rev)
-	echo ogr2ogr -overwrite -gt 1000000 -f "SQLite" -dialect "SQLITE" \
-		-sql "${SQL_STR}" ${gridded_vector} ${shotseg_vector} \
-		-dsco SPATIALITE=YES -lco SPATIAL_INDEX=YES \
+    read -r -d '' SQL_STR <<- EOF
+    SELECT 
+        MakePoint(AVG(easting), AVG(northing), ${SRID}) AS geometry, 
+        COUNT(${COL4GROUP}) AS shot_count,
+        ST_Area(ST_Union(geometry))/(${IMG_RES}*${IMG_RES}) AS sc_percent, 
+        ${select_str4copy}, 
+        ${select_str4stats} 
+    FROM ${shotseg_layer} 
+    GROUP BY ${COL4GROUP}
+EOF
+    out_layer_name=$(basename ${gridded_vector} | rev | cut -d '.' -f2- | rev)
+    echo ogr2ogr -overwrite -gt 1000000 -f "SQLite" -dialect "SQLITE" \
+        -sql "${SQL_STR}" ${gridded_vector} ${shotseg_vector} \
+        -dsco SPATIALITE=YES -lco SPATIAL_INDEX=YES \
         -lco GEOMETRY_NAME=geometry \
-		-nln ${out_layer_name} \
-		-nlt POINT
-	ogr2ogr -overwrite -gt 1000000 -f "SQLite" -dialect "SQLITE" \
-		-sql "${SQL_STR}" ${gridded_vector} ${shotseg_vector} \
-		-dsco SPATIALITE=YES -lco SPATIAL_INDEX=YES \
-		-nln ${out_layer_name} \
-		-nlt POINT
+        -nln ${out_layer_name} \
+        -nlt POINT
+    ogr2ogr -overwrite -gt 1000000 -f "SQLite" -dialect "SQLITE" \
+        -sql "${SQL_STR}" ${gridded_vector} ${shotseg_vector} \
+        -dsco SPATIALITE=YES -lco SPATIAL_INDEX=YES \
+        -nln ${out_layer_name} \
+        -nlt POINT
 }
 export -f shot_seg_to_point_grids
 
 if [[ ${#} -ge 3 ]]; then
-	shot_seg_to_point_grids ${@}
+    shot_seg_to_point_grids ${@}
 else
-	echo "${USAGE}"
+    echo "${USAGE}"
 fi
