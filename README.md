@@ -15,36 +15,37 @@ processed into the LVIS L2 data products by NASA [[2]](#2). For example data,
 check one of the LVIS L2 products from the Arctic-Boreal Vulnerability
 Experiment (ABoVE) Airborne Campaign [[3]](#3). 
 
-This repo of scripts grid the shot-based LVIS L2 data into raster data, given a
-raster grid of user-defined resolution and spatial reference system. Gridded
+This repo of scripts grids the shot-based LVIS L2 data into raster data, given
+a raster grid of user-defined resolution and spatial reference system. Gridded
 products allow easier synergetic uses of LVIS data with other remote sensing
-products, particularly terrestrial remote sensing data from medium resolution
-satellites such as Landsat and Sentinel-2.
+products, particularly remote sensing of land by medium resolution satellites
+such as Landsat and Sentinel-2.
 
 The gridding procedure in this repo uses weighted average of LVIS L2 variable
 values from all the shots covering a grid cell. The weight of each shot is the
 area of this shot covering a grid cell.
 
 ## Installation
-__NOTE: the program is tested only on Linux system.__
+__NOTE: the program has been tested only on Linux system.__
 
 The required dependencies of this repository are listed in the file
-`environment.yml`. Two recommended ways to install these dependencies. 
+`environment.yml`. Two recommended ways to install these dependencies for using
+scripts in this repo. 
 
-### Install dependencies via [`conda` program](https://docs.conda.io/projects/conda/en/latest/index.html)
-1. [Install `conda`](https://docs.conda.io/projects/conda/en/latest/commands/install.html)
+### First way: Install dependencies via [`conda` program](https://docs.conda.io/projects/conda/en/latest/index.html)
+1. [Install `conda` program](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html).
 
 2. [Create a conda environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-from-an-environment-yml-file)
    using the file `environment.yml` in the repository. 
 
-### Unpack dependencies from a pre-zipped file
+3. [Activate your conda environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#activating-an-environment).
+
+### Alternative way: Unpack dependencies from a pre-zipped file
 The dependencies are pre-packaged into a zipped file by [`conda-pack`
 program](https://conda.github.io/conda-pack/). This zipped file, called
 *conda-env-rasterio.tar.gz*, comes with [__*a
 release*__](https://github.com/zhanlilz/grid-nasa-lvis-l2/releases) that you
 may download from [this repository on github](https://github.com/zhanlilz/grid-nasa-lvis-l2). 
-
-To install the dependencies for using scripts in this repo, 
 
 1. Unzip *conda-env-rasterio.tar.gz* into a directory you may name *your_dir*
 ```
